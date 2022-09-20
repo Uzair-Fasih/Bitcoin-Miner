@@ -15,7 +15,7 @@ mineBitcoin(ParentPID, MainPid, NumberOfZeros, Prefix, Input, Nonce) ->
   RegExp = "^0{" ++ integer_to_list(NumberOfZeros) ++ "}.*",
   case re:run(Hash, RegExp) of
     {match, _} -> 
-      MainPid ! {bitcoin, ParentPID, Hash, GeneratedInput};
+      MainPid ! {bitcoin, ParentPID, Hash, GeneratedInput, statistics(runtime), statistics(wall_clock)};
     _ ->
       'better luck next time'
   end,
