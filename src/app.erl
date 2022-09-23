@@ -10,14 +10,17 @@ listen(Nonce, Runtime, {NumberOfZeros, ActorCount, WorkUnit, Prefix}) ->
       RequestorPID ! {ok, Nonce, NextNonce - 1, {NumberOfZeros, ActorCount, WorkUnit, Prefix}},
       listen(NextNonce, Runtime, {NumberOfZeros, ActorCount, WorkUnit, Prefix});
 
-    {bitcoin_found, Input, Hash, {ClientPID, {_, Time}}} -> 
-      ElapsedTime = Time * 1000,
+    {bitcoin_found, ClientPID, Input, Hash} -> 
       io:format("~p\tinput: ~s\tbitcoin: ~s~n", [ClientPID, Input, Hash]),
+      listen(Nonce, Runtime, {NumberOfZeros, ActorCount, WorkUnit, Prefix});
+
+    {report_metric, {_, Time}} ->
+      ElapsedTime = Time * 1000,
       listen(Nonce, Runtime + ElapsedTime, {NumberOfZeros, ActorCount, WorkUnit, Prefix});
 
     {request_metric, RequestorPID} ->
       RequestorPID ! {metric, Runtime},
-      listen(Nonce, 0, {NumberOfZeros, ActorCount, WorkUnit, Prefix})
+      listen(Nonce, Runtime, {NumberOfZeros, ActorCount, WorkUnit, Prefix})
   end.
 
 
@@ -29,6 +32,7 @@ supervisor(ServerPID) ->
     receive
       {ok, Start, End, { NumberOfZeros, ActorCount, WorkUnit, Prefix }} ->
         [
+          % Spawn link so the spawned processes die when the supervisor dies
           spawn_link(mine, mineBitcoin, [ProcessID, ServerPID, { NumberOfZeros, WorkUnit / ActorCount, integer_to_list(Nonce), Prefix }]) ||
           Nonce <- lists:seq(Start, End) % Spawns `ActorCount` number of actors and Nonce is always unique
         ],
@@ -44,9 +48,9 @@ performanceMonitor(ServerPID) ->
     ServerPID ! {request_metric, self()},
     receive
       {metric, Runtime} ->
-        {_, Time} = statistics(wall_clock),
+        {Time, _} = statistics(wall_clock), % Gives total runtime
         ElapsedTime = Time * 1000,
-        io:format("CPU Time: ~p, Real Time: ~p, Cores utilised: ~p~n", [Runtime, ElapsedTime, Runtime div ElapsedTime]),
+        io:format("CPU Time: ~p, Real Time: ~p, Process threads utilised: ~p~n", [Runtime, ElapsedTime, Runtime div ElapsedTime]),
         Loop()
     end
   end,
@@ -59,7 +63,7 @@ start(NumberOfZeros) when is_integer(NumberOfZeros) ->
   {ok, ActorCount} = application:get_env(bitcoin, actorcount),
   {ok, WorkUnit} = application:get_env(bitcoin, workunit),
   {ok, GatorId} = application:get_env(bitcoin, gatorid),
-  statistics(wall_clock), % for benchmarking
+  statistics(runtime), % For benchmarking
 
   Nonce = 1, % Initial Nonce to be used
   Runtime = 0, % Initial runtime
@@ -74,5 +78,6 @@ start(NumberOfZeros) when is_integer(NumberOfZeros) ->
 
 % The entry point for the client
 start(ServerPID) when is_atom(ServerPID)  ->
+  statistics(runtime), % For benchmarking
   io:format("Running mining client connected with ~p.~n", [ServerPID]),
   supervisor({server, ServerPID}).

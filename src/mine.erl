@@ -20,11 +20,13 @@ mineBitcoin(ClientPID, ServerPID, { NumberOfZeros, WorkUnit, PrevHash, Prefix })
   case re:run(Hash, RegExp) of
     {match, _} -> 
       % Return ClientPID, runtime for benchmarking/book-keeping
-      ServerPID ! {bitcoin_found, Input, Hash, {ClientPID, statistics(runtime)}}; 
+      ServerPID ! {bitcoin_found, ClientPID, Input, Hash}; 
     _ ->
       'better luck next time'
   end,
   
+  ServerPID ! {report_metric, statistics(runtime)}, % for benchmarking
+
   % Compute more cycles until the work unit is exhausted
   if WorkUnit > 0 -> mineBitcoin(ClientPID, ServerPID, { NumberOfZeros, WorkUnit - 1, Hash, Prefix });
     true -> 'Done'
