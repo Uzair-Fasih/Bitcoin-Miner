@@ -1,46 +1,78 @@
 -module(app).
--export([start/1, main/3]).
+-import(server, [main/1]).
+-export([start/1, supervisor/1, performanceMonitor/1]).
 
 % Keep listening for newer messages from spawned children and incoming workers
-listen(NumberOfZeros, ActorCount, NextStart, Prefix) ->
+listen(Nonce, Runtime, {NumberOfZeros, ActorCount, WorkUnit, Prefix}) ->
   receive
-    {bitcoin, ParentPID, Hash, Input, {_, Time1}, {_, Time2}} -> 
-      U1 = Time1 * 1000,
-      U2 = Time2 * 1000,
+    {request_work, RequestorPID} ->
+      NextNonce = Nonce + ActorCount,
+      RequestorPID ! {ok, Nonce, NextNonce - 1, {NumberOfZeros, ActorCount, WorkUnit, Prefix}},
+      listen(NextNonce, Runtime, {NumberOfZeros, ActorCount, WorkUnit, Prefix});
 
-      io:format("~p\tinput:~s\tbitcoin:~s~n", [ParentPID, Input, Hash]),
-      io:format("\t\tCode time=~p (~p) microseconds\t ratio=~p~n", [U1,U2, U1 div U2]),      
-      listen(NumberOfZeros, ActorCount, NextStart, Prefix);
-    
-    {connect, WorkerPID} ->
-      io:format("~n A new worked connected... ~n~n"),
-      WorkerPID ! {ok, NumberOfZeros, NextStart, NextStart + ActorCount, Prefix},
-      listen(NumberOfZeros, ActorCount, NextStart + ActorCount + 1, Prefix)
+    {bitcoin_found, Input, Hash, {ClientPID, {_, Time}}} -> 
+      ElapsedTime = Time * 1000,
+      io:format("~p\tinput: ~s\tbitcoin: ~s~n", [ClientPID, Input, Hash]),
+      listen(Nonce, Runtime + ElapsedTime, {NumberOfZeros, ActorCount, WorkUnit, Prefix});
+
+    {request_metric, RequestorPID} ->
+      RequestorPID ! {metric, Runtime},
+      listen(Nonce, 0, {NumberOfZeros, ActorCount, WorkUnit, Prefix})
   end.
 
-% The entry point for the server
-main(NumberOfZeros, ActorCount, Prefix) ->
-  [
-    spawn(mine, mineBitcoin, [self(), self(), NumberOfZeros, Prefix, "", Nonce]) ||
-    Nonce <- lists:seq(1, ActorCount)
-  ],
-  listen(NumberOfZeros, ActorCount, ActorCount + 1, Prefix).
 
+% Supervisor spawns the workers for workunits received
+supervisor(ServerPID) ->
+  ProcessID = self(),
+  Supervise = fun Loop() ->
+    ServerPID ! {request_work, self()},
+    receive
+      {ok, Start, End, { NumberOfZeros, ActorCount, WorkUnit, Prefix }} ->
+        [
+          spawn_link(mine, mineBitcoin, [ProcessID, ServerPID, { NumberOfZeros, WorkUnit / ActorCount, integer_to_list(Nonce), Prefix }]) ||
+          Nonce <- lists:seq(Start, End) % Spawns `ActorCount` number of actors and Nonce is always unique
+        ],
+        Loop()
+    end
+  end,
+  Supervise().
 
-% Entry point into the application
+% Performance Monitor prints metrics to the screen after every 10s
+performanceMonitor(ServerPID) ->
+  Measure = fun Loop() ->
+    timer:sleep(10 * 1000),
+    ServerPID ! {request_metric, self()},
+    receive
+      {metric, Runtime} ->
+        {_, Time} = statistics(wall_clock),
+        ElapsedTime = Time * 1000,
+        io:format("CPU Time: ~p, Real Time: ~p, Cores utilised: ~p~n", [Runtime, ElapsedTime, Runtime div ElapsedTime]),
+        Loop()
+    end
+  end,
+  Measure().
+
+% The entry point for the server.
+% The server spawns two processes: a supervisor and a performance monitor 
+% and then listens for messages from workers and processes
 start(NumberOfZeros) when is_integer(NumberOfZeros) ->
-  {ok, GatorId} = application:get_env(bitcoin, gatorid),
   {ok, ActorCount} = application:get_env(bitcoin, actorcount),
-  io:format("Running mining application with prefix: ~s and ~p actors~n~n", [GatorId, ActorCount]),
-  register(server, spawn(?MODULE, main, [NumberOfZeros, ActorCount, GatorId]));
+  {ok, WorkUnit} = application:get_env(bitcoin, workunit),
+  {ok, GatorId} = application:get_env(bitcoin, gatorid),
+  statistics(wall_clock), % for benchmarking
 
-% Start a worker instance and connect to server
+  Nonce = 1, % Initial Nonce to be used
+  Runtime = 0, % Initial runtime
+  spawn_link(?MODULE, supervisor, [self()]), % Link supervisor to the main server process 
+  spawn_link(?MODULE, performanceMonitor, [self()]), % Link performance monitor to the main server process 
+
+  register(server, self()),
+  io:format("Running mining server with prefix: ~s, actors: ~p and workunit ~p.~n", [GatorId, ActorCount, WorkUnit]),
+
+  listen(Nonce, Runtime, {NumberOfZeros, ActorCount, WorkUnit, GatorId});
+
+
+% The entry point for the client
 start(ServerPID) when is_atom(ServerPID)  ->
-  {server, ServerPID} ! {connect, self()},
-  receive
-    {ok, NumberOfZeros, Start, End, Prefix} ->
-      [
-        spawn(mine, mineBitcoin, [self(), {server, ServerPID}, NumberOfZeros, Prefix, "", Nonce]) ||
-        Nonce <- lists:seq(Start, End)
-      ]
-  end.
+  io:format("Running mining client connected with ~p.~n", [ServerPID]),
+  supervisor({server, ServerPID}).
