@@ -3,21 +3,29 @@
 ## Authors
 | Name | UFID |
 | ----------- | ----------- |
-| Mohammed Uzair Fasih | XXXX XXXX |
+| Mohammed Uzair Fasih | 6286 1020 |
 | Sohaib Uddin Syed | 5740 5488 |
 
 ## Overview
-The goal of the project is use the actor model in erlang and design a distributed solution to mine bitcoins. We have designed our system to work as follows:
+The goal of the project is to use the actor model in erlang and design a distributed solution to mine bitcoins. We have designed our system to work as follows:
 
-- The server(boss) has a supervisor that spawns actors both for itself and any incoming workers and a performance monitor actor that clalculates the CPU utilization in a configurable interval of time.
-- Each actors takes as input a GatorId and a nonce value. The nonce value is unique for every actor spawned so that repeated work between actors can be avoided.
-- In order to generate new coins, each actor uses the previous hash value with the GatorId and nonce as input to generate the next hash value in a recursive fashion. 
-- This process repeats for work unit times after which the actor requests the supervisor for a new nonce.
+- The server (boss) spawns two processes: 
+  - **A Supervisor** that spawns actors (allowing the server machine to mine its own bitcoins)
+  - **A Performance monitor** that clalculates the CPU utilization in a particular interval of time (10s).
+
+The main server process then listens for incoming messages from its own processes and also other processes over the OTP.
+
+- Each actors takes as input a `GatorId` and a `Nonce` value. The `Nonce` value is unique for every actor spawned so that repeated work between actors can be avoided.
+- In order to generate new coins, each actor uses the previous hash value it generated along with the `GatorId` and `Nonce` (in the following format: `<GatorId><Previous Hash><Nonce>`) as input to generate the next hash value.
+- The mining actors pass the mined bitcoins to the server immediately as they are found.
+- This process repeats for work unit times after which the actor requests the supervisor for a new `Nonce`.
+- The environment variables `GatorId`, `ActorCount` and `WorkUnit` are configurable from the `bitcoin.app` file.
+
 ## Rubric and Output
 
 ### 1) Work Unit
 
-A work unit of 1,000,000. T
+We used a work unit of `1,000,000`. There is very little information needed by the actors that the server can provide. In our implementation the `Nonce` and `GatorId` prefix needs to be provided only once for the actor to work independently and perform work that doesn't result in collisions. Setting the work unit to a higher value allows the actors to work independently to a higher degree, while also allowing them to get another set of problems from the server after exhausting their work unit. This has the benefit of allowing actors to explore another Nonce for generating bitcoins. Our chosen number has a good balance of both and resulted in more mined bitcoins.  
 
 ### 2) Sample Result
 The following is a runtime sample with an input of 4.
@@ -31,8 +39,8 @@ The following is a runtime sample with an input of 4.
 ### 3) Running Time
 We used an Intel Core i5 CPU with 4 cores and 8 processors running 16 actors.
 
-CPU Time - 1188.29 sec
-Real Time: 259.45 sec 
+CPU Time - 1188.29 sec<br/>
+Real Time: 259.45 sec<br/>
 Core utilisation: 4
 
 ### 4) Most Zeros
