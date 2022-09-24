@@ -19,7 +19,7 @@ The main server process then listens for incoming messages from its own processe
 - In order to generate new coins, each actor uses the previous hash value it generated along with the `GatorId` and `Nonce` (in the following format: `<GatorId><Previous Hash><Nonce>`) as input to generate the next hash value.
 - The mining actors pass the mined bitcoins to the server immediately as they are found.
 - This process repeats for work unit times after which the actor requests the supervisor for a new `Nonce`.
-- The environment variables `GatorId`, `ActorCount`, `WorkUnit` and 'PerformanceInterval' are configurable from the `bitcoin.app` file.
+- The environment variables `GatorId`, `ActorCount`, `WorkUnit` and `PerformanceInterval` are configurable from the `bitcoin.app` file.
 
 ## Rubric and Output
 
