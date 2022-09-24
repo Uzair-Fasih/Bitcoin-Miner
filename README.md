@@ -3,7 +3,7 @@
 ##Authors
 | Name | UFID |
 | ----------- | ----------- |
-| Mohammed Uzair Fasih | 1234 5678 |
+| Mohammed Uzair Fasih | XXXX XXXX |
 | Sohaib Uddin Syed | 5740 5488 |
 
 ## Overview
@@ -17,7 +17,7 @@ The goal of the project is use the actor model in erlang and design a distribute
 
 ### 1) Work Unit
 
-A work unit of 1,000,000. 
+A work unit of 1,000,000. T
 
 ### 2) Sample Result
 The following is a runtime sample with an input of 4.
