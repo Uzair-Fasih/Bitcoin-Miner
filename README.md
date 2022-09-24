@@ -1,6 +1,6 @@
 # Bitcoin Miner - DOSP Fall 2022
 
-##Authors
+## Authors
 | Name | UFID |
 | ----------- | ----------- |
 | Mohammed Uzair Fasih | XXXX XXXX |
