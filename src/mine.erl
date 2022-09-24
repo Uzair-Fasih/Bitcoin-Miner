@@ -8,10 +8,10 @@ computeHash(Input) ->
   ]).
 
 
-% Continuously mines a bitcoin using tail recursion 
+% Continuously mines bitcoins using tail recursion 
 % until the work unit is exhausted and 
 % sends all found bitcoins to a given process
-mineBitcoin(ClientPID, ServerPID, { NumberOfZeros, WorkUnit, PrevHash, Prefix }) ->
+mineBitcoin(ClientPID, ServerPID, { NumberOfZeros, CurrentWorkUnit, PrevHash, Prefix }) ->
 
   Input = Prefix ++ PrevHash,
   Hash = computeHash(Input),
@@ -27,7 +27,12 @@ mineBitcoin(ClientPID, ServerPID, { NumberOfZeros, WorkUnit, PrevHash, Prefix })
   
   ServerPID ! {report_metric, statistics(runtime)}, % for benchmarking
 
-  % Compute more cycles until the work unit is exhausted
-  if WorkUnit > 0 -> mineBitcoin(ClientPID, ServerPID, { NumberOfZeros, WorkUnit - 1, Hash, Prefix });
-    true -> 'Done'
+  % Compute more cycles until the work unit is exhausted else re-requests work.
+  if CurrentWorkUnit > 0 -> mineBitcoin(ClientPID, ServerPID, { NumberOfZeros, CurrentWorkUnit - 1, Hash, Prefix });
+    true -> 
+      ServerPID ! {re_request_work, ClientPID},
+      receive
+        {work, WorkUnit} ->
+          mineBitcoin(ClientPID, ServerPID, {NumberOfZeros, WorkUnit, PrevHash, Prefix})
+      end
   end.
