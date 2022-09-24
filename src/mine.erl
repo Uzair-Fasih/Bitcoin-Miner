@@ -29,10 +29,5 @@ mineBitcoin(ClientPID, ServerPID, { NumberOfZeros, CurrentWorkUnit, PrevHash, Pr
 
   % Compute more cycles until the work unit is exhausted else re-requests work.
   if CurrentWorkUnit > 0 -> mineBitcoin(ClientPID, ServerPID, { NumberOfZeros, CurrentWorkUnit - 1, Hash, Prefix });
-    true -> 
-      ServerPID ! {re_request_work, ClientPID},
-      receive
-        {work, WorkUnit} ->
-          mineBitcoin(ClientPID, ServerPID, {NumberOfZeros, WorkUnit, PrevHash, Prefix})
-      end
+    true -> 'Done'
   end.

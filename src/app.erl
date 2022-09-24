@@ -10,11 +10,6 @@ listen(Nonce, Runtime, {NumberOfZeros, ActorCount, WorkUnit, Prefix}) ->
       RequestorPID ! {work, Nonce, NextNonce - 1, {NumberOfZeros, ActorCount, WorkUnit, Prefix}},
       listen(NextNonce, Runtime, {NumberOfZeros, ActorCount, WorkUnit, Prefix});
 
-    {re_request_work, RequestorPID} ->
-      NextNonce = Nonce + 1,
-      RequestorPID ! {work, WorkUnit, NextNonce},
-      listen(NextNonce, Runtime, {NumberOfZeros, ActorCount, WorkUnit, Prefix});
-
     {bitcoin_found, ClientPID, Input, Hash} -> 
       io:format("~p\tinput: ~s\tbitcoin: ~s~n", [ClientPID, Input, Hash]),
       listen(Nonce, Runtime, {NumberOfZeros, ActorCount, WorkUnit, Prefix});
