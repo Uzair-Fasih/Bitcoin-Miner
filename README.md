@@ -3,8 +3,8 @@
 ## Authors
 | Name | UFID |
 | ----------- | ----------- |
-| Mohammed Uzair Fasih | 6286 1020 |
-| Sohaib Uddin Syed | 5740 5488 |
+| Mohammed Uzair Fasih | [REDACTED] |
+| Sohaib Uddin Syed | [REDACTED] |
 
 ## Overview
 The goal of the project is to use the actor model in erlang and design a distributed solution to mine bitcoins. We have designed our system to work as follows:
